@@ -112,6 +112,13 @@ class S2_Core {
 	 * @var array|null
 	 */
 	public $post_tag_names;
+	public $script_debug;
+	public $word_wrap;
+	public $excerpt_length;
+	public $site_switching;
+	public $clean_interval;
+	public $lockout;
+	public $wp_release;
 
 	/**
 	 * Load plugin translations.
@@ -974,9 +981,11 @@ class S2_Core {
 		} else {
 			if ( $confirm ) {
 				global $current_user;
-				$wpdb->query( $wpdb->prepare( "INSERT INTO $wpdb->subscribe2 (email, active, date, time, ip) VALUES (%s, %d, CURDATE(), CURTIME(), %s)", $email, 1, $current_user->user_login ) );
+				$wpdb->query( $wpdb->prepare( "INSERT INTO $wpdb->subscribe2 (email, active, date, time, ip) VALUES (%s, %d, CURDATE(), CURTIME(), %s)",
+					sanitize_email( $email ), 1, sanitize_textarea_field( $current_user->user_login ) )
+				);
 			} else {
-				$wpdb->query( $wpdb->prepare( "INSERT INTO $wpdb->subscribe2 (email, active, date, time, ip) VALUES (%s, %d, CURDATE(), CURTIME(), %s)", $email, 0, $this->ip ) );
+				$wpdb->query( $wpdb->prepare( "INSERT INTO $wpdb->subscribe2 (email, active, date, time, ip) VALUES (%s, %d, CURDATE(), CURTIME(), %s)", sanitize_email( $email ), 0, sanitize_text_field( $this->ip ) ) );
 			}
 		}
 	}
@@ -2355,6 +2364,19 @@ class S2_Core {
 
 			// Capture CSV export.
 			if ( isset( $_POST['s2_admin'] ) && isset( $_POST['csv'] ) ) {
+                // Security check: Verify user has proper capabilities.
+                if ( ! current_user_can( apply_filters( 's2_capability', 'manage_options', 'manage' ) ) ) {
+                    wp_die( 'Not permitted.' );
+                }
+
+                // Security check: Verify nonce.
+                if (
+                    ! isset( $_REQUEST['s2-export-csv'] ) ||
+                    ! wp_verify_nonce( sanitize_key( $_REQUEST['s2-export-csv'] ), 's2-export-csv' )
+                ) {
+                    wp_die( 'Request cannot be completed.' );
+                }
+
 				$date = gmdate( 'Y-m-d' );
 				header( 'Content-Description: File Transfer' );
 				header( 'Content-type: application/octet-stream' );
